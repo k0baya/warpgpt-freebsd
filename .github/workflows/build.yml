@@ -1,0 +1,48 @@
+name: Build
+
+on: workflow_dispatch
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Build
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build
+      uses: vmactions/freebsd-vm@v1
+      with:
+        usesh: true
+        release: 13.2
+        prepare: |
+          pkg install -y wget curl git gcc bash gawk gsed
+          wget https://dl.google.com/go/go1.22.0.freebsd-amd64.tar.gz && tar -C /usr/local -xzf go1.22.0.freebsd-amd64.tar.gz && rm go1.22.0.freebsd-amd64.tar.gz
+          ln -s /usr/local/go/bin/go /usr/local/bin/go
+        run: |
+          git clone https://github.com/oliverkirk-sudo/WarpGPT
+          cd WarpGPT
+          go mod download
+          go build -o warpgpt
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@main
+      with:
+        name: warpgpt-freebsd
+        path: |
+            WarpGPT/warpgpt
+
+    - name: Create release
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: latest
+        files: |
+              WarpGPT/warpgpt
+              
+    - name: Delete workflow runs
+      uses: Mattraks/delete-workflow-runs@v2
+      with:
+        token: ${{ github.token }}
+        repository: ${{ github.repository }}
+        retain_days: 1
+        keep_minimum_runs: 8
